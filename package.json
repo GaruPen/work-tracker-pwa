@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": "https://owenside.github.io/work-tracker-pwa/",
+  "homepage": "https://garupen.github.io/work-tracker-pwa/",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
