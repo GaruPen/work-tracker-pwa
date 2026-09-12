@@ -1,0 +1,51 @@
+name: Build Local Web
+
+on:
+  push:
+    branches:
+      - main
+      - feat/chinese-salary-calendar-v0.1
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Create local web package
+        run: |
+          mkdir -p release
+          cp -R dist release/dist
+          printf '#!/usr/bin/env python3\nimport http.server, socketserver, webbrowser, os\nos.chdir("dist")\nPORT=8080\nwebbrowser.open(f"http://localhost:{PORT}/work-tracker-pwa/")\nwith socketserver.TCPServer(("127.0.0.1", PORT), http.server.SimpleHTTPRequestHandler) as httpd:\n    print(f"工资打卡日历：http://localhost:{PORT}/work-tracker-pwa/")\n    httpd.serve_forever()\n' > release/start_local.py
+          printf '@echo off\nchcp 65001 >nul\ncd /d %%~dp0\nwhere python >nul 2>nul\nif errorlevel 1 (\n  echo 未检测到 Python。请安装 Python 3，或使用其他静态 HTTP 服务器打开 dist。\n  pause\n  exit /b 1\n)\npython start_local.py\n' > release/启动本地网页版.bat
+          printf '本地网页版使用方法\n====================\n\n1. 解压整个压缩包。\n2. Windows 双击“启动本地网页版.bat”。\n3. 浏览器会自动打开 http://localhost:8080/work-tracker-pwa/\n4. 数据保存在当前浏览器 IndexedDB 中。\n5. 关闭命令行窗口即可停止本地服务。\n' > release/使用说明.txt
+          cd release
+          zip -r ../工资打卡日历_V0.1_本地网页版.zip .
+
+      - name: Upload local web package
+        uses: actions/upload-artifact@v4
+        with:
+          name: salary-calendar-local-web-v0.1
+          path: 工资打卡日历_V0.1_本地网页版.zip
+          if-no-files-found: error
+          retention-days: 30
