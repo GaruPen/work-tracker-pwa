@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Clock3, Trash2, X } from 'lucide-react';
-import { calculateShiftSalary, formatCurrency, getMonthSummary, getShiftDateKey, toDateKey } from '../utils/salary';
+import { calculateShiftSalary, formatCurrency, getMonthSummary, getShiftDateKey, normalizeShiftType, toDateKey } from '../utils/salary';
 
 const DAY_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
 const STATUS_OPTIONS = [
@@ -51,9 +51,10 @@ export default function Calendar({ shifts, setShifts, settings }) {
   const openDay = (date) => {
     const key = toDateKey(date);
     const record = (shiftsByDate.get(key) || [])[0];
+    const defaultType = settings.workWeek?.includes(date.getDay()) ? 'work' : 'rest';
     setSelectedDateKey(key);
     setForm({
-      status: record?.shiftType || (record?.isHoliday ? 'holiday' : (record ? 'work' : (settings.workWeek?.includes(date.getDay()) ? 'work' : 'rest'))),
+      status: record ? normalizeShiftType(record.shiftType, record.isHoliday) : defaultType,
       start: timeString(record?.startTime, '09:00'),
       end: timeString(record?.endTime, '18:00'),
       breakMinutes: String(Math.round((record?.pauseMs || 3600000) / 60000)),
@@ -130,10 +131,14 @@ export default function Calendar({ shifts, setShifts, settings }) {
               if (!date) return <div key={`empty-${index}`} className="aspect-[0.78]" />;
               const key = toDateKey(date);
               const records = shiftsByDate.get(key) || [];
-              const type = records[0]?.shiftType || (records[0]?.isHoliday ? 'holiday' : null);
+              const record = records[0];
+              const type = record ? normalizeShiftType(record.shiftType, record.isHoliday) : null;
               const meta = type ? statusMeta(type) : null;
               const isToday = key === toDateKey(today);
-              const dayEarned = records.reduce((sum, item) => sum + calculateShiftSalary({ durationMs: item.durationMs || 0, shiftStart: item.startTime, shiftType: item.shiftType || 'work', isHoliday: item.isHoliday, settings }).earned, 0);
+              const dayEarned = records.reduce((sum, item) => {
+                const itemType = normalizeShiftType(item.shiftType, item.isHoliday);
+                return sum + calculateShiftSalary({ durationMs: item.durationMs || 0, shiftStart: item.startTime, shiftType: itemType, isHoliday: item.isHoliday, settings }).earned;
+              }, 0);
               return (
                 <button key={key} onClick={() => openDay(date)} className={`aspect-[0.78] min-h-[58px] rounded-xl border p-1 flex flex-col items-center justify-between ${isToday ? 'border-indigo-500/50 bg-indigo-500/10' : 'border-white/[0.04] bg-black/25'}`}>
                   <span className={`text-xs ${isToday ? 'text-indigo-300 font-semibold' : 'text-zinc-300'}`}>{date.getDate()}</span>
