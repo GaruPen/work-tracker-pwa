@@ -7,6 +7,14 @@ const numberValue = (value, fallback = 0) => {
 
 export const pad2 = (value) => String(value).padStart(2, '0');
 
+export function normalizeShiftType(value, isHoliday = false) {
+  if (isHoliday) return 'holiday';
+  if (value === 'urlop') return 'leave';
+  if (value === 'l4') return 'sick';
+  if (value === 'standard') return 'work';
+  return value || 'work';
+}
+
 export function toDateKey(value = new Date()) {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return '';
@@ -71,7 +79,7 @@ export function calculateShiftSalary({ durationMs = 0, shiftStart = Date.now(), 
 
   const baseHourly = getBaseHourlyRate(settings, shiftStart);
   const standardDailyHours = Math.max(0, numberValue(dailyWorkHours, 8));
-  const type = isHoliday ? 'holiday' : (shiftType || 'work');
+  const type = normalizeShiftType(shiftType, isHoliday);
   const dayOfWeek = new Date(shiftStart).getDay();
   const isConfiguredWorkday = (Array.isArray(workWeek) ? workWeek : [1, 2, 3, 4, 5]).includes(dayOfWeek);
 
@@ -107,7 +115,7 @@ export function getShiftDetails(options = {}) {
   return {
     ...details,
     nettoHour: details.baseHourly,
-    isHoliday: Boolean(options.isHoliday || options.shiftType === 'holiday'),
+    isHoliday: Boolean(options.isHoliday || normalizeShiftType(options.shiftType) === 'holiday'),
     isWeekend: !settings.workWeek?.includes?.(new Date(options.shiftStart || Date.now()).getDay()),
     isOvertime: details.overtimeHours > 0,
     overtimeMs: details.overtimeHours * HOUR_MS,
@@ -125,7 +133,7 @@ export function getMonthSummary(shifts = [], dateLike = new Date(), settings = {
   let earned = 0;
 
   monthShifts.forEach((shift) => {
-    const type = shift.shiftType || (shift.isHoliday ? 'holiday' : 'work');
+    const type = normalizeShiftType(shift.shiftType, shift.isHoliday);
     const durationMs = getShiftDurationMs(shift);
     const shiftStart = shift.startTime || new Date(`${getShiftDateKey(shift)}T12:00:00`).getTime();
     const details = calculateShiftSalary({ durationMs, shiftStart, shiftType: type, isHoliday: shift.isHoliday, settings });
